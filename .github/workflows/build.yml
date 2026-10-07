@@ -1,0 +1,54 @@
+name: Build desktop
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Download Hermes binary
+        run: node scripts/download-hermes.js
+        env:
+          HERMES_VERSION: ${{ vars.HERMES_VERSION || 'latest' }}
+
+      - name: Build Tauri app (MSI + NSIS)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          # Creates a draft GitHub release with the installers attached.
+          # Remove tagName/releaseName/etc once you have a real release workflow.
+          tagName: app-v__VERSION__
+          releaseName: "Company Brain v__VERSION__"
+          releaseBody: "See the assets to download and install."
+          releaseDraft: true
+          prerelease: false
+
+      # Gate 8: add code signing step here using OV certificate.
+      # signtool.exe is available on windows-latest runners.

@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-agent/
+
+# Tauri build artifacts
+src-tauri/target/
+
+# Hermes binary — downloaded in CI by scripts/download-hermes.js, never committed
+src-tauri/binaries/hermes*
+!src-tauri/binaries/.gitkeep
+
+# Environment
+.env
+.env.local
+*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/settings.json
+.idea/
