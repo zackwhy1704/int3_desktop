@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { BrainProvider } from "../brain/index.ts";
+import type { BrainProvider } from "../brain/index";
 
 /** MCP tool definition — registered with Hermes at server startup. */
 export const brainSearchSchema = {

@@ -19,16 +19,16 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-import { createBrainProvider } from "./brain/index.ts";
+import { createBrainProvider } from "./brain/index";
 import {
   brainSearchSchema,
   executeBrainSearch,
-} from "./tools/brain_search.ts";
-import { getClaimSchema, executeGetClaim } from "./tools/get_claim.ts";
+} from "./tools/brain_search";
+import { getClaimSchema, executeGetClaim } from "./tools/get_claim";
 import {
   listSourcesSchema,
   executeListSources,
-} from "./tools/list_sources.ts";
+} from "./tools/list_sources";
 
 const provider = createBrainProvider();
 

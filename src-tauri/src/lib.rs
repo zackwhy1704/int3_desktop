@@ -1,6 +1,5 @@
 mod hermes;
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     env_logger::init();
 
@@ -10,6 +9,11 @@ pub fn run() {
         .setup(|app| {
             hermes::spawn(app.handle())?;
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Destroyed = event {
+                hermes::stop(window.app_handle());
+            }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

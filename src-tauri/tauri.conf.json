@@ -25,7 +25,7 @@
     }
   },
   "bundle": {
-    "active": true,
+    "active": false,
     "targets": ["msi", "nsis"],
     "externalBin": [
       "binaries/hermes"
@@ -33,28 +33,11 @@
     "resources": {
       "agent/hermes_config.json": "resources/hermes_config.json"
     },
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.ico"
-    ],
     "windows": {
-      "wix": {
-        "version": "0.1.0.0"
-      },
       "nsis": {
         "installMode": "perUser",
         "allowWebviewInstall": true
       }
-    },
-    "updater": {
-      "active": true,
-      "dialog": true,
-      "pubkey": "__TAURI_UPDATE_PUBKEY__",
-      "endpoints": [
-        "__GATEWAY_URL__/desktop/updates/{{target}}/{{arch}}/{{current_version}}"
-      ]
     }
   }
 }

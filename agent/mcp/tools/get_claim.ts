@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { BrainProvider } from "../brain/index.ts";
+import type { BrainProvider } from "../brain/index";
 
 export const getClaimSchema = {
   name: "get_claim",

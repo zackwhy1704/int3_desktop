@@ -1,4 +1,4 @@
-import type { BrainProvider, Claim, SearchResult, Source } from "./provider.ts";
+import type { BrainProvider, Claim, SearchResult, Source } from "./provider";
 
 /**
  * RemoteBrainProvider — routes all queries to the int3_ai backend over HTTPS.

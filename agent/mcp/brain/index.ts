@@ -1,8 +1,8 @@
-import type { BrainProvider } from "./provider.ts";
-import { RemoteBrainProvider } from "./remote.ts";
-import { LocalBrainProvider } from "./local.ts";
+import type { BrainProvider } from "./provider";
+import { RemoteBrainProvider } from "./remote";
+import { LocalBrainProvider } from "./local";
 
-export type { BrainProvider, SearchResult, Claim, Source } from "./provider.ts";
+export type { BrainProvider, SearchResult, Claim, Source } from "./provider";
 
 /**
  * Factory — reads BRAIN_PROVIDER env and returns the correct implementation.

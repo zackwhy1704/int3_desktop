@@ -1,4 +1,4 @@
-import type { BrainProvider, Claim, SearchResult, Source } from "./provider.ts";
+import type { BrainProvider, Claim, SearchResult, Source } from "./provider";
 
 /**
  * LocalBrainProvider — NOT YET IMPLEMENTED.

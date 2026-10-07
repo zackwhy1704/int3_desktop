@@ -81,14 +81,21 @@ export async function streamChat(
   if (!res.ok) throw new Error(`Hermes error ${res.status}: ${await res.text()}`);
 
   const reader = res.body!.getReader();
-  const decoder = new TextDecoder();
+  // stream: true buffers incomplete multi-byte sequences across reads.
+  const decoder = new TextDecoder("utf-8", { fatal: false });
   let full = "";
+  let buf = ""; // accumulates incomplete SSE lines across network reads
 
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    for (const line of decoder.decode(value).split("\n")) {
-      if (!line.startsWith("data: ") || line === "data: [DONE]") continue;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split("\n");
+    // Keep the last (potentially incomplete) line in the buffer.
+    buf = lines.pop() ?? "";
+    for (const line of lines) {
+      if (line === "data: [DONE]") break;
+      if (!line.startsWith("data: ")) continue;
       try {
         const chunk = JSON.parse(line.slice(6)) as {
           choices: Array<{ delta: { content?: string } }>;
@@ -100,6 +107,7 @@ export async function streamChat(
       }
     }
   }
-
+  // Flush any remaining buffered bytes.
+  decoder.decode();
   return full;
 }

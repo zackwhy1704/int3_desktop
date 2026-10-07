@@ -1,40 +1,39 @@
 //! Hermes sidecar lifecycle management.
 //!
-//! Hermes Agent (NousResearch/hermes-agent, MIT) runs as a bundled sidecar
-//! binary in gateway mode. It listens on 127.0.0.1:8642 and exposes an
-//! OpenAI-compatible HTTP API that the React UI calls directly.
+//! Hermes Agent runs in gateway mode as a bundled sidecar, exposing an
+//! OpenAI-compatible HTTP API at 127.0.0.1:8642. The React UI polls
+//! /health and shows "connected" / "disconnected".
 //!
-//! The React UI never communicates with this module — it only speaks HTTP to
-//! Hermes at 127.0.0.1:8642. This module's only job is to start and, in future
-//! gates, restart Hermes when the OIDC token changes.
+//! ## Gate 0 item 1 note
+//! The sidecar binary name and gateway CLI command are placeholders pending
+//! the Hermes Windows spike. Update `HERMES_BINARY` and the args to
+//! `sidecar().args(…)` once the spike confirms the correct invocation.
 //!
 //! ## Gate 1
-//! Fire-and-forget spawn. The UI polls /health and shows "connected" / "disconnected".
+//! Fire-and-forget spawn. Hermes is killed on AppExit.
 //!
 //! ## Gate 4 (TODO)
-//! 1. Receive OIDC token from the sign-in flow (via a Tauri command).
-//! 2. Write the token into hermes_config.json in the app data directory.
-//! 3. Kill the current Hermes process and call spawn() again.
-//!
-//! ## Binary location
-//! `src-tauri/binaries/hermes-x86_64-pc-windows-msvc.exe` (gitignored).
-//! Downloaded in CI by `scripts/download-hermes.js`.
-//! Tauri bundles it via `externalBin` in tauri.conf.json.
+//! Before spawning, inject the OIDC token into Hermes config via a short-
+//! lived in-memory mechanism (not written to disk — Gate 0 item 8).
+//! Restart Hermes after token refresh.
 
 use std::sync::Mutex;
-use tauri::{AppHandle, Manager};
-use tauri_plugin_shell::{process::CommandChild, ShellExt};
+
 use log::{error, info};
+use tauri::{AppHandle, Emitter, Manager};
+use tauri_plugin_shell::{process::CommandChild, ShellExt};
 
-/// Holds the running Hermes child process so Gate 4 can restart it.
-pub struct HermesState {
-    pub child: Mutex<Option<CommandChild>>,
-}
+/// Registered as Tauri managed state so commands and the exit handler can
+/// access the child handle.
+pub struct HermesProcess(pub Mutex<Option<CommandChild>>);
 
-/// Spawns Hermes in gateway mode.
+/// Name of the sidecar as declared in `externalBin` in tauri.conf.json.
+/// Tauri resolves the platform-specific binary name (adds -x86_64-pc-windows-msvc.exe
+/// on Windows) automatically.
 ///
-/// Reads the bundled hermes_config.json from the Tauri resource directory.
-/// On error, logs and returns — the UI will show "disconnected" and retry via polling.
+/// TODO Gate 0 item 1: confirm binary name after Hermes Windows spike.
+const HERMES_BINARY: &str = "hermes";
+
 pub fn spawn(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let config_path = app
         .path()
@@ -42,30 +41,62 @@ pub fn spawn(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         .map(|p| p.join("resources").join("hermes_config.json"))
         .map_err(|e| format!("could not resolve resource dir: {e}"))?;
 
-    info!("Spawning Hermes sidecar, config: {}", config_path.display());
+    info!("Spawning Hermes sidecar; config: {}", config_path.display());
 
-    let (mut _rx, child) = app
+    // TODO Gate 0 item 1: confirm the correct gateway-mode subcommand.
+    // Placeholder uses "gateway start --config <path>".
+    let sidecar = app
         .shell()
-        .sidecar("hermes")
-        .map_err(|e| format!("hermes sidecar not found — did download-hermes.js run? {e}"))?
-        .args(["gateway", "start", "--config", &config_path.to_string_lossy()])
+        .sidecar(HERMES_BINARY)
+        .map_err(|e| format!("{HERMES_BINARY} sidecar not found — run scripts/download-hermes.js first. {e}"))?
+        .args(["gateway", "start", "--config", &config_path.to_string_lossy()]);
+
+    let (mut rx, child) = sidecar
         .spawn()
         .map_err(|e| { error!("Failed to spawn Hermes: {e}"); e })?;
 
-    // Store child handle for Gate 4 restart.
-    // If HermesState was not yet registered (first call), manage it here.
-    if let Some(state) = app.try_state::<HermesState>() {
-        *state.child.lock().unwrap() = Some(child);
+    // Register child for later kill on exit.
+    if app.try_state::<HermesProcess>().is_none() {
+        app.manage(HermesProcess(Mutex::new(Some(child))));
     } else {
-        app.manage(HermesState {
-            child: Mutex::new(Some(child)),
-        });
+        *app.state::<HermesProcess>().0.lock()
+            .map_err(|e| format!("mutex poisoned: {e}"))? = Some(child);
     }
 
-    info!("Hermes sidecar spawned. API available at http://127.0.0.1:8642");
+    // Forward Hermes stdout/stderr to the Tauri window as "hermes-log" events
+    // so the React UI can surface startup errors during development.
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        use tauri_plugin_shell::process::CommandEvent;
+        while let Some(event) = rx.recv().await {
+            match event {
+                CommandEvent::Stdout(line) | CommandEvent::Stderr(line) => {
+                    let text = String::from_utf8_lossy(&line).to_string();
+                    info!("[hermes] {text}");
+                    let _ = app_handle.emit("hermes-log", &text);
+                }
+                CommandEvent::Terminated(status) => {
+                    error!("[hermes] process terminated: {:?}", status);
+                    let _ = app_handle.emit("hermes-terminated", ());
+                    break;
+                }
+                _ => {}
+            }
+        }
+    });
 
-    // TODO Gate 1 follow-up: forward Hermes stderr/stdout from _rx to the
-    // app log so startup errors are visible during development.
-
+    info!("Hermes sidecar spawned — API at http://127.0.0.1:8642");
     Ok(())
+}
+
+/// Kill the Hermes process cleanly. Called on app exit.
+pub fn stop(app: &AppHandle) {
+    if let Some(state) = app.try_state::<HermesProcess>() {
+        if let Ok(mut guard) = state.0.lock() {
+            if let Some(child) = guard.take() {
+                info!("Stopping Hermes sidecar…");
+                let _ = child.kill();
+            }
+        }
+    }
 }
