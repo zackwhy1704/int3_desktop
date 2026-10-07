@@ -1,0 +1,45 @@
+{
+  "_doc": [
+    "Development config for local testing (Gate 3).",
+    "",
+    "Prerequisites:",
+    "  1. Backend running: cd int3_ai && docker compose up backend",
+    "     with BRAIN_DEV_USER=priya (or any seed user id) in the backend env.",
+    "  2. Gateway running: cd int3_ai && docker compose up gateway",
+    "     with GATEWAY_AUTH=none (dev mode, no real OIDC).",
+    "  3. MCP server built: npm run agent:build (produces agent/mcp/server.js).",
+    "",
+    "The token value here ('dev') is accepted by the backend because",
+    "BRAIN_DEV_USER is set — any non-empty Bearer token maps to that user.",
+    "Gate 4 replaces this with a real OIDC token written at runtime."
+  ],
+  "gateway": {
+    "host": "127.0.0.1",
+    "port": 8642,
+    "auth": {
+      "type": "bearer",
+      "token": "dev"
+    }
+  },
+  "llm": {
+    "base_url": "http://localhost:8000/v1",
+    "model": "claude-sonnet-4-6",
+    "auth": {
+      "type": "bearer",
+      "token": "dev"
+    }
+  },
+  "mcp_servers": [
+    {
+      "name": "brain",
+      "transport": "stdio",
+      "command": "node",
+      "args": ["agent/mcp/server.js"],
+      "env": {
+        "BRAIN_PROVIDER": "remote",
+        "BRAIN_API_URL": "http://localhost:8000",
+        "BRAIN_AUTH_TOKEN": "dev"
+      }
+    }
+  ]
+}
