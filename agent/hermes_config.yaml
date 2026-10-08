@@ -1,0 +1,41 @@
+# Hermes Agent configuration template for Company Brain Desktop.
+#
+# Placeholders replaced at runtime:
+#   __USER_OIDC_TOKEN__  — the user's OIDC id_token (Gate 4)
+#   __BACKEND_URL__      — int3_ai backend base URL (e.g. https://api.int3.ai)
+#   __GATEWAY_URL__      — int3_ai gateway base URL (e.g. https://gw.int3.ai)
+#   __MCP_SERVER_PATH__  — absolute path to the built MCP server JS file
+#
+# Gate 1 (dev): copy to ~/.hermes/config.yaml and fill in values manually.
+# Gate 4: Tauri writes ~/.hermes/config.yaml with the real OIDC token
+#         before spawning hermes --gateway.
+# Gate 8: bundled CPython + Hermes removes the manual install requirement.
+#
+# Hermes docs: https://hermes-agent.nousresearch.com/docs
+
+# ----- API server (the HTTP endpoint the desktop app talks to) ----
+platforms:
+  api_server:
+    enabled: true
+    extra:
+      # Random secret generated at first launch (Gate 4). Desktop uses this
+      # to authenticate its requests to Hermes.  Never stored beyond the
+      # in-memory config written here (Gate 0 item 8).
+      key: "__HERMES_LOCAL_TOKEN__"
+
+# ----- LLM backend (how Hermes calls our gateway) ----------------
+llm:
+  base_url: "__GATEWAY_URL__/v1"
+  model: "claude-sonnet-4-6"
+  api_key: "__USER_OIDC_TOKEN__"
+
+# ----- MCP servers (tools Hermes can call) -----------------------
+mcp_servers:
+  brain:
+    command: node
+    args:
+      - "__MCP_SERVER_PATH__"
+    env:
+      BRAIN_PROVIDER: remote
+      BRAIN_API_URL: "__BACKEND_URL__"
+      BRAIN_AUTH_TOKEN: "__USER_OIDC_TOKEN__"

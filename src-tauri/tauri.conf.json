@@ -27,11 +27,8 @@
   "bundle": {
     "active": false,
     "targets": ["msi", "nsis"],
-    "externalBin": [
-      "binaries/hermes"
-    ],
     "resources": {
-      "agent/hermes_config.json": "resources/hermes_config.json"
+      "agent/hermes_config.yaml": "resources/hermes_config.yaml"
     },
     "windows": {
       "nsis": {

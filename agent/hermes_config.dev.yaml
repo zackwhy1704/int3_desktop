@@ -1,0 +1,38 @@
+# Hermes dev config — Gate 3 local testing.
+#
+# Prerequisites:
+#   1. Install Hermes: iex (irm https://hermes-agent.nousresearch.com/install.ps1)
+#   2. Copy this file to %USERPROFILE%\.hermes\config.yaml
+#   3. Start backend: cd int3_ai && docker compose up backend
+#      (BRAIN_DEV_USER=priya is already set in docker-compose.yml)
+#   4. Start gateway: cd int3_ai && docker compose up gateway
+#   5. Build MCP server: npm run agent:build  (produces agent/mcp/server.js)
+#   6. Update __MCP_SERVER_PATH__ below to the absolute path of server.js
+#   7. Run: hermes --gateway
+#   8. Desktop app will connect to http://127.0.0.1:8642
+#
+# The token 'dev' is accepted by the backend because BRAIN_DEV_USER is set —
+# any non-empty Bearer token maps to that user.
+# Gate 4 replaces this with a real OIDC token written at runtime.
+
+platforms:
+  api_server:
+    enabled: true
+    extra:
+      key: "dev"
+
+llm:
+  base_url: "http://localhost:8001/v1"
+  model: "claude-sonnet-4-6"
+  api_key: "dev"
+
+mcp_servers:
+  brain:
+    command: node
+    args:
+      # UPDATE THIS PATH to the absolute path of server.js on your machine:
+      - "C:/path/to/int3_desktop/agent/mcp/server.js"
+    env:
+      BRAIN_PROVIDER: remote
+      BRAIN_API_URL: "http://localhost:8000"
+      BRAIN_AUTH_TOKEN: "dev"
