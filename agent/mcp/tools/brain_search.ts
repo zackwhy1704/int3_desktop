@@ -1,6 +1,17 @@
 import { z } from "zod";
 import type { BrainProvider } from "../brain/index";
 
+/**
+ * Citation format (FROZEN after Gate 3):
+ *   [claim:N]  where N is the integer claim ID returned by the backend.
+ *
+ * Every result carries this marker. The model MUST reproduce it verbatim
+ * when it uses the fact in its answer so the React UI can verify it
+ * server-side before rendering. Hallucinated IDs fail /v1/validate-claims
+ * and are shown as unverifiable citations.
+ */
+export const CITATION_FORMAT = "[claim:{id}]";
+
 /** MCP tool definition — registered with Hermes at server startup. */
 export const brainSearchSchema = {
   name: "brain_search",
@@ -8,8 +19,10 @@ export const brainSearchSchema = {
     "Search the company brain for information relevant to a question. " +
     "Returns matching claims with source titles, dates, and claim IDs. " +
     "Always call this tool before answering any question about company policy, " +
-    "people, processes, or facts. If results are returned, base your answer " +
-    "exclusively on them and cite each one.",
+    "people, processes, or facts. " +
+    "When you use a result in your answer you MUST include its citation marker " +
+    "exactly as shown (e.g. [claim:42]) so the user can verify it. " +
+    "Do not invent claim IDs — only cite IDs returned by this tool.",
   inputSchema: {
     type: "object" as const,
     properties: {
@@ -55,12 +68,11 @@ export async function executeBrainSearch(
   const formatted = results
     .map((r, i) => {
       const supersededNote = r.supersededBy
-        ? `\n  ⚠ This claim has been superseded — use get_claim(${r.claimId}) for full history.`
+        ? `\n  ⚠ SUPERSEDED — use get_claim to see current value. Cite [claim:${r.supersededBy}] instead.`
         : "";
       return (
-        `[${i + 1}] ${r.sourceTitle} (${r.asOf})\n` +
-        `  ${r.content}\n` +
-        `  claim_id: ${r.claimId}${supersededNote}`
+        `[${i + 1}] ${r.sourceTitle} (${r.asOf}) [claim:${r.claimId}]\n` +
+        `  ${r.content}${supersededNote}`
       );
     })
     .join("\n\n");

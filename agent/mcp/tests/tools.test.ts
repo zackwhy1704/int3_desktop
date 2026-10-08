@@ -86,7 +86,8 @@ describe("executeBrainSearch", () => {
     const text = result.content[0].text;
     expect(text).toContain("Refund Policy v2");
     expect(text).toContain("2026-01-15");
-    expect(text).toContain("claim_001");
+    // Citation marker format is FROZEN: [claim:N] — any change here is a breaking change.
+    expect(text).toContain("[claim:claim_001]");
   });
 
   it("returns no-source message when results are empty", async () => {
@@ -95,11 +96,14 @@ describe("executeBrainSearch", () => {
     expect(result.content[0].text).toMatch(/no relevant/i);
   });
 
-  it("flags superseded results with a warning", async () => {
+  it("flags superseded results and points to current claim marker", async () => {
     const superseded = { ...FAKE_RESULT, supersededBy: "claim_002" };
     const provider = makeFakeProvider({ search: async () => [superseded] });
     const result = await executeBrainSearch(provider, { query: "refund", scopes: [] });
-    expect(result.content[0].text).toContain("superseded");
+    const text = result.content[0].text;
+    expect(text).toContain("SUPERSEDED");
+    // Must point to the current claim using the frozen marker so the model cites correctly.
+    expect(text).toContain("[claim:claim_002]");
   });
 
   it("rejects empty query", async () => {
@@ -114,20 +118,23 @@ describe("executeBrainSearch", () => {
 // ---------------------------------------------------------------------------
 
 describe("executeGetClaim", () => {
-  it("formats current claim correctly", async () => {
+  it("formats current claim with frozen citation marker", async () => {
     const result = await executeGetClaim(makeFakeProvider(), { claim_id: "claim_001" });
     const text = result.content[0].text;
     expect(text).toContain("refund_policy");
     expect(text).toContain("30");
     expect(text).toContain("CURRENT");
+    // Must include the citation marker so the model knows how to cite this claim.
+    expect(text).toContain("[claim:claim_001]");
   });
 
-  it("shows SUPERSEDED when claim has been replaced", async () => {
+  it("shows SUPERSEDED and frozen marker pointing to current claim", async () => {
     const superseded = { ...FAKE_CLAIM, supersededBy: "claim_002" };
     const provider = makeFakeProvider({ getClaim: async () => superseded });
     const result = await executeGetClaim(provider, { claim_id: "claim_001" });
-    expect(result.content[0].text).toContain("SUPERSEDED");
-    expect(result.content[0].text).toContain("claim_002");
+    const text = result.content[0].text;
+    expect(text).toContain("SUPERSEDED");
+    expect(text).toContain("[claim:claim_002]");
   });
 
   it("includes condition when present", async () => {

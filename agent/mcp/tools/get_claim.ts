@@ -38,8 +38,8 @@ export async function executeGetClaim(
     `As of:     ${claim.asOf}`,
     `Scope:     ${claim.scope}`,
     claim.supersededBy
-      ? `Status:    SUPERSEDED by claim ${claim.supersededBy}`
-      : `Status:    CURRENT`,
+      ? `Status:    SUPERSEDED — current value is [claim:${claim.supersededBy}]`
+      : `Status:    CURRENT — cite as [claim:${claim.id}]`,
   ].filter(Boolean);
 
   return { content: [{ type: "text" as const, text: lines.join("\n") }] };
